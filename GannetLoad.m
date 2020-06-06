@@ -15,6 +15,7 @@ function MRS_struct = GannetLoad(varargin)
 
 MRS_struct.version.Gannet = '3.1.6';
 MRS_struct.version.load = '200605';
+VersionCheck(MRS_struct.version.Gannet);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   0. Check the file list for typos
@@ -483,9 +484,8 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
                     error('AlignTo parameter in GannetPreInitialise.m not recognized. Check spelling.');
             end
             
-            % MM
-            %MRS_struct.spec.AllFramesFT = AllFramesFT;
-            %MRS_struct.spec.AllFramesFTrealign = AllFramesFTrealign;
+            MRS_struct.spec.AllFramesFT = AllFramesFT;
+            MRS_struct.spec.AllFramesFTrealign = AllFramesFTrealign;
             
             % Separate ON/OFF data and generate DIFF spectra
             
