@@ -1,6 +1,7 @@
-function fids = SubSpectralAlign(fids, water_flag, MRS_struct)
+function MRS_struct = SubSpectralAlign(MRS_struct, water_flag)
 
 ii = MRS_struct.ii;
+fids = MRS_struct.fids.data_align;
 freqRange = MRS_struct.p.sw(ii)/MRS_struct.p.LarmorFreq(ii);
 freq = (size(fids,1) + 1 - (1:size(fids,1))) / size(fids,1) * freqRange + 4.68 - freqRange/2;
 time = (0:(MRS_struct.p.npoints(ii)-1))'/MRS_struct.p.sw(ii);
@@ -92,7 +93,8 @@ if MRS_struct.p.HERMES
 else
     ind = 2;
 end
-fids = PhaseCorrection(data, fids, freq, ind, MRS_struct);
+[fids, phi] = PhaseCorrection(data, fids, freq, ind, MRS_struct);
+MRS_struct.out.SpecReg.phase(ii,:) = MRS_struct.out.SpecReg.phase(ii,:) + phi;
 
 % Average subspectra again
 if strcmp(MRS_struct.p.vendor,'Siemens_rda') % if .rda data, use conventional averaging
@@ -173,18 +175,20 @@ if MRS_struct.p.HERMES
     
     % Water
     a = max(max(max(flatdata(:,:,subSpecInd([2 4])))));
-    fun = @(x) objFunc(flatdata(:,:,subSpecInd([2 4]))./a, freqLim(1,:), t, x);
+    fun = @(x) objFunc(flatdata(:,:,subSpecInd([2 4]))./a, freq, freqLim(1,:), t, x);
     param(1,:) = lsqnonlin(fun, x0(1,:), [], [], lsqnonlinopts);
     
     % NAA
     a = max(max(max(flatdata(:,:,subSpecInd([1 4])))));
-    fun = @(x) objFunc(flatdata(:,:,subSpecInd([1 4]))./a, freqLim(2,:), t, x);
+    fun = @(x) objFunc(flatdata(:,:,subSpecInd([1 4]))./a, freq, freqLim(2,:), t, x);
     param(2,:) = lsqnonlin(fun, x0(2,:), [], [], lsqnonlinopts);
     
     ind = subSpecInd(1):4:size(fids,2);
     for jj = 1:length(ind)
         fids(:,ind(jj)) = fids(:,ind(jj)) .* exp(1i*param(2,1)*2*pi*t') * exp(1i*pi/180*param(2,2));
     end
+    MRS_struct.out.SpecReg.freq(ii,ind)  = MRS_struct.out.SpecReg.freq(ii,ind) + param(2,1);
+    MRS_struct.out.SpecReg.phase(ii,ind) = MRS_struct.out.SpecReg.phase(ii,ind) + param(2,2);
     for jj = 1:4
         ind = jj:4:size(fids,2);
         if water_flag
@@ -208,13 +212,13 @@ if MRS_struct.p.HERMES
     x0(3,:) = [f0 0];
     
     a = max(max(max(flatdata(:,:,subSpecInd([3 1])))));
-    fun = @(x) objFunc(flatdata(:,:,subSpecInd([3 1]))./a, freqLim(3,:), t, x);
+    fun = @(x) objFunc(flatdata(:,:,subSpecInd([3 1]))./a, freq, freqLim(3,:), t, x);
     param(3,:) = lsqnonlin(fun, x0(3,:), [], [], lsqnonlinopts);
     
 else
     
     a = max(max(max(flatdata)));
-    fun = @(x) objFunc(flatdata./a, freqLim, t, x);
+    fun = @(x) objFunc(flatdata./a, freq, freqLim, t, x);
     param = lsqnonlin(fun, x0, [], [], lsqnonlinopts);
     
 end
@@ -227,18 +231,23 @@ if MRS_struct.p.HERMES
         fids(:,ind1(jj)) = fids(:,ind1(jj)) .* exp(1i*param(1,1)*2*pi*t') * exp(1i*pi/180*param(1,2));
         fids(:,ind2(jj)) = fids(:,ind2(jj)) .* exp(1i*param(3,1)*2*pi*t') * exp(1i*pi/180*param(3,2));
     end
+    MRS_struct.out.SpecReg.freq(ii,ind1)  = MRS_struct.out.SpecReg.freq(ii,ind1) + param(1,1);
+    MRS_struct.out.SpecReg.phase(ii,ind1) = MRS_struct.out.SpecReg.phase(ii,ind1) + param(1,2);
+    MRS_struct.out.SpecReg.freq(ii,ind2)  = MRS_struct.out.SpecReg.freq(ii,ind2) + param(3,1);
+    MRS_struct.out.SpecReg.phase(ii,ind2) = MRS_struct.out.SpecReg.phase(ii,ind2) + param(3,2);
 else
     ind = find(MRS_struct.fids.ON_OFF == 1);
     for jj = 1:length(ind)
         fids(:,ind(jj)) = fids(:,ind(jj)) .* exp(1i*param(1)*2*pi*t') * exp(1i*pi/180*param(2));
     end
+    MRS_struct.out.SpecReg.freq(ii,ind)  = MRS_struct.out.SpecReg.freq(ii,ind) + param(1);
+    MRS_struct.out.SpecReg.phase(ii,ind) = MRS_struct.out.SpecReg.phase(ii,ind) + param(2);
 end
+
+MRS_struct.fids.data_align = fids;
 
 if ishandle(44)
     close(44);
-end
-if ishandle(3)
-    close(3);
 end
 
 end
@@ -253,7 +262,7 @@ data = real(fftshift(fft(data,[],1),1));
 end
 
 
-function fids = PhaseCorrection(data, fids, freq, ind, MRS_struct)
+function [fids, phi] = PhaseCorrection(data, fids, freq, ind, MRS_struct)
 
 OFF = data(:,ind);
 ii = MRS_struct.ii;
@@ -271,7 +280,8 @@ Area = (max(OFF) - min(OFF)) * Width * 4;
 x0 = [Area Width maxFreq 0 Baseline 0 1] .* [1 2*MRS_struct.p.LarmorFreq(ii) MRS_struct.p.LarmorFreq(ii) 180/pi 1 1 1];
 ModelParamChoCr = FitChoCr(freq(freqLim), OFF, x0, MRS_struct.p.LarmorFreq(ii));
 
-fids = fids * exp(1i*pi/180*ModelParamChoCr(4));
+phi = ModelParamChoCr(4);
+fids = fids * exp(1i*pi/180*phi);
 
 end
 
@@ -294,7 +304,7 @@ end
 end
 
 
-function out = objFunc(in, freqLim, t, x)
+function out = objFunc(in, freq, freqLim, t, x) %#ok<*INUSL>
 
 f   = x(1);
 phi = x(2);
@@ -307,6 +317,19 @@ b = real(fftshift(fft(complex(in(:,1,2), in(:,2,2)))));
 
 DIFF = a - b;
 out = DIFF(freqLim);
+
+% % MM
+% figure(44);
+% cla;
+% hold on;
+% plot(freq,a,'k');
+% plot(freq,b,'r');
+% plot(freq,DIFF-6,'k');
+% plot(freq(freqLim),DIFF(freqLim)-6,'r');
+% hold off;
+% set(gca,'XDir','reverse','XLim',[1 5]);
+% drawnow;
+% pause(0.05);
 
 end
 

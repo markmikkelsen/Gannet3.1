@@ -392,9 +392,6 @@ function change_twix_hdr(fid)
             bufname        = fread(fid,namesz,'char=>char').';
             bufname(end)   = []; % delete NULL character
             buflen         = fread(fid, 1,'uint32');
-            if buflen > 1e9 % MM (190213)
-                continue
-            end
             buffer         = fread(fid, buflen, 'char=>char').';
             buff.(bufname) = buffer;
             

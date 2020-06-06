@@ -396,14 +396,16 @@ MRS_struct.fids.data_water = MRS_struct.fids.data_water/1e11;
 % ind = mode(ind);
 % S = WaterData_avg(:,ind);
 % w = (S'*(Psi\S))^-1 * S' / Psi;
-% WaterData = w.' .* WaterData;
+% w = repmat(w.', [1 size(WaterData,2) size(WaterData,3)]);
+% WaterData = w .* WaterData;
 % MRS_struct.fids.data_water = squeeze(sum(WaterData,1));
 % 
 % MetabData_avg = mean(MetabData,3);
 % e = MetabData_avg(:,ceil(0.75*size(MetabData_avg,2)):end);
 % Psi = e*e';
 % w = (S'*(Psi\S))^-1 * S' / Psi;
-% MetabData = w.' .* MetabData;
+% w = repmat(w.', [1 size(MetabData,2) size(MetabData,3)]);
+% MetabData = w .* MetabData;
 % MRS_struct.fids.data = squeeze(sum(MetabData,1));
 
 end

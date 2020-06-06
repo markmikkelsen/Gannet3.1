@@ -13,8 +13,8 @@ function MRS_struct = GannetLoad(varargin)
 %   6. Build GannetLoad output
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-MRS_struct.version.Gannet = '3.1.5';
-MRS_struct.version.load = '200226';
+MRS_struct.version.Gannet = '3.1.6';
+MRS_struct.version.load = '200605';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   0. Check the file list for typos
@@ -483,7 +483,9 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
                     error('AlignTo parameter in GannetPreInitialise.m not recognized. Check spelling.');
             end
             
-            MRS_struct.spec.AllFramesFTrealign = AllFramesFTrealign;
+            % MM
+            %MRS_struct.spec.AllFramesFT = AllFramesFT;
+            %MRS_struct.spec.AllFramesFTrealign = AllFramesFTrealign;
             
             % Separate ON/OFF data and generate DIFF spectra
             
@@ -727,7 +729,8 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
             plot([1 size(MRS_struct.fids.data,2)], [F0 F0], '-k')
             plot([1 size(MRS_struct.fids.data,2)], [F0-0.04 F0-0.04], '--k')
             plot([1 size(MRS_struct.fids.data,2)], [F0+0.04 F0+0.04], '--k');
-            plot(1:size(MRS_struct.fids.data,2), MRS_struct.spec.F0freq(ii,:)', '-', 1:size(MRS_struct.fids.data,2), rejectframesplot, 'ro');
+            plot(1:size(MRS_struct.fids.data,2), MRS_struct.spec.F0freq(ii,:)', 'Color', [0 0.4470 0.7410]);
+            plot(1:size(MRS_struct.fids.data,2), rejectframesplot, 'ro');
             hold off;
             if MRS_struct.p.HERMES || any(strcmp(MRS_struct.p.target,'GSH'))
                 text(size(MRS_struct.fids.data,2) + 0.025*size(MRS_struct.fids.data,2), F0, {'Nominal','Cr freq.'}, 'FontSize', 8);

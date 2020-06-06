@@ -183,7 +183,8 @@ if nargin == 3
 %     ind = mode(ind);
 %     S = WaterData_avg(:,ind);
 %     w = (S'*(Psi\S))^-1 * S' / Psi;
-%     WaterData = w.' .* WaterData;
+%     w = repmat(w.', [1 size(WaterData,2) size(WaterData,3)]);
+%     WaterData = w .* WaterData;
 %     MRS_struct.fids.data_water = double(mean(conj(squeeze(sum(WaterData,1))),2));
 end
 
@@ -203,7 +204,8 @@ if isfield(MRS_struct.p,'seqtype_water') && strcmp(MRS_struct.p.seqtype_water,'M
 %     e = MetabData_avg(:,ceil(0.75*size(MetabData_avg,2)):end);
 %     Psi = e*e';
 %     w = (S'*(Psi\S))^-1 * S' / Psi;
-%     MetabData = w.' .* MetabData;
+%     w = repmat(w.', [1 size(MetabData,2) size(MetabData,3)]);
+%     MetabData = w .* MetabData;
 %     MRS_struct.fids.data = double(conj(squeeze(sum(MetabData,1))));
 else
     % If no water data (or PRESS water reference) provided, combine data
@@ -282,7 +284,7 @@ TwixHeader.TablePosTra          = twix_obj.hdr.Dicom.lGlobalTablePosTra; % Trans
 % performed), the respective field is left empty in the TWIX file. This
 % case needs to be intercepted. Setting to the minimum possible value.
 VoI_Params = {'VoI_InPlaneRot','VoI_RoFOV','VoI_PeFOV','VoIThickness','NormCor','NormSag','NormTra', ...
-    'PosCor','PosSag','PosTra','TablePosSag','TablePosCor','TablePosTra'};
+              'PosCor','PosSag','PosTra','TablePosSag','TablePosCor','TablePosTra'};
 for pp = 1:length(VoI_Params)
     if isempty(TwixHeader.(VoI_Params{pp}))
         TwixHeader.(VoI_Params{pp}) = realmin('double');

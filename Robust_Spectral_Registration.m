@@ -1,7 +1,5 @@
 function [AllFramesFTrealign, MRS_struct] = Robust_Spectral_Registration(MRS_struct)
 
-% Robust spectral registration (MM: August 2019)
-
 ii = MRS_struct.ii;
 
 % Looping parameters
@@ -86,9 +84,6 @@ if r > r_threshold || q > q_threshold
         reverseStr = repmat(sprintf('\b'), 1, length(msg));
         DataToAlign(:,jj) = SignalFilter(spec(:,jj), lipid_flag, water_flag, MRS_struct);
     end
-    if ishandle(77)
-        close(77);
-    end
 else
     DataToAlign = MRS_struct.fids.data;
 end
@@ -155,8 +150,7 @@ while SpecRegLoop > -1
     t = 0:(1/MRS_struct.p.sw(ii)):(length(target)/2-1)*(1/MRS_struct.p.sw(ii));
     iter = 1;
     reverseStr = '';
-    for jj = alignOrd
-        
+    for jj = alignOrd        
         msg = sprintf('\nRobust spectral registration - Iteration: %d', iter);
         fprintf([reverseStr, msg]);
         reverseStr = repmat(sprintf('\b'), 1, length(msg));
@@ -177,11 +171,10 @@ while SpecRegLoop > -1
         w(jj) = 0.5*corr(target, m(:,jj)).^2;
         target = (1 - w(jj))*target + w(jj)*m(:,jj);
         
-        iter = iter + 1;
-        
+        iter = iter + 1;        
     end
     
-    ind = find(SubspecToAlign == SpecRegLoop);    
+    ind = find(SubspecToAlign == SpecRegLoop);
     MRS_struct.out.SpecReg.freq(ii,ind)  = params(:,1);
     MRS_struct.out.SpecReg.phase(ii,ind) = params(:,2);
     MRS_struct.out.SpecReg.MSE(ii,ind) = MSE;
@@ -195,7 +188,7 @@ while SpecRegLoop > -1
     if SpecRegLoop == 0
         
         % Align subspectra
-        MRS_struct.fids.data_align = SubSpectralAlign(MRS_struct.fids.data_align, water_flag, MRS_struct);
+        MRS_struct = SubSpectralAlign(MRS_struct, water_flag);
         
         % Line-broadening, zero-filling and FFT
         AllFramesFTrealign = MRS_struct.fids.data_align .* repmat((exp(-time*MRS_struct.p.LB*pi)), [1 size(MRS_struct.fids.data,2)]);
@@ -210,6 +203,7 @@ while SpecRegLoop > -1
             CrFreqShift = CrFreqShift - 3.02;
             CrFreqShift_pts = round(CrFreqShift / abs(MRS_struct.spec.freq(1) - MRS_struct.spec.freq(2)));
             AllFramesFTrealign = circshift(AllFramesFTrealign, CrFreqShift_pts, 1);
+            MRS_struct.out.SpecReg.freq(ii,:) = MRS_struct.out.SpecReg.freq(ii,:) + CrFreqShift * MRS_struct.p.LarmorFreq(ii);
         end
         
     end
@@ -218,15 +212,6 @@ while SpecRegLoop > -1
     
 end
 
-if ishandle(201)
-    close(201);
-end
-if ishandle(200)
-    close(200);
-end
-if ishandle(555)
-    close(555);
-end
 fprintf('\n')
 
 end

@@ -1,7 +1,7 @@
 function [AllFramesFTrealign, MRS_struct] = Spectral_Registration_HERMES(MRS_struct)
 % Spectral registration is a time-domain frequency-and-phase correction
 % routine as per Near et al. (2015). Incorporates a multiplexed,
-% probabilistic approach for aligning HERMES data (MM: 170609)
+% probabilistic approach for aligning HERMES data
 
 showPlots = 0;
 
@@ -148,8 +148,8 @@ while SpecRegLoop > -1
     end
     
     corrloop_d = find(SubspecToAlign == SpecRegLoop);
-    MRS_struct.out.SpecReg.freq(ii,corrloop_d) = parsFit(:,1);
-    MRS_struct.out.SpecReg.phase(ii,corrloop_d) = parsFit(:,2);
+    MRS_struct.out.SpecReg.freq(ii,corrloop_d)  = parsFit(:,1) - MRS_struct.out.MLalign.f.p(count,2,ii)';
+    MRS_struct.out.SpecReg.phase(ii,corrloop_d) = parsFit(:,2) - MRS_struct.out.MLalign.ph.p(count,2,ii)';
     CorrParsML(corrloop_d,1) = parsFit(:,1) - MRS_struct.out.MLalign.f.p(count,2,ii)';
     CorrParsML(corrloop_d,2) = parsFit(:,2) - MRS_struct.out.MLalign.ph.p(count,2,ii)';
     zMSE(corrloop_d) = zscore(MSE); % standardized MSEs
@@ -168,8 +168,7 @@ while SpecRegLoop > -1
     
     if SpecRegLoop == 0
         
-        if showPlots == 1
-            
+        if showPlots == 1            
             MRS_struct.out.MLalign.f_aligned.x(ii,:) = CorrParsML(:,1);
             start = [std(MRS_struct.out.MLalign.f_aligned.x(ii,:))/2, median(MRS_struct.out.MLalign.f_aligned.x(ii,:))];
             MRS_struct.out.MLalign.f_aligned.p(ii,:) = ...
@@ -214,13 +213,12 @@ while SpecRegLoop > -1
             set(gca, 'FontSize', 12, 'TickDir', 'out', 'Box', 'off');
             
             drawnow;
-            %pause(1);
-            
+            %pause(1);            
         end
         
         % Line-broadening, zero-filling and FFT
         FullData = DataToAlign .* repmat((exp(-time*MRS_struct.p.LB*pi)), [1 size(MRS_struct.fids.data,2)]);
-        AllFramesFTrealign = fftshift(fft(FullData, MRS_struct.p.ZeroFillTo(ii),1),1);
+        AllFramesFTrealign = fftshift(fft(FullData, MRS_struct.p.ZeroFillTo(ii), 1),1);
         
         if ~MRS_struct.p.phantom
             % In frequency domain, shift Cr signals to 3.02 and get frequency 'right' as opposed to 'consistent'
@@ -230,6 +228,7 @@ while SpecRegLoop > -1
             CrFreqShift = freq(FrameMaxPos);
             CrFreqShift = CrFreqShift - 3.02;
             CrFreqShift_pts = round(CrFreqShift / abs(MRS_struct.spec.freq(1) - MRS_struct.spec.freq(2)));
+            MRS_struct.out.SpecReg.freq(ii,:) = MRS_struct.out.SpecReg.freq(ii,:) + CrFreqShift * MRS_struct.p.LarmorFreq(ii);
             
             % Apply circular frequency shifts
             for corrloop = 1:size(AllFramesFTrealign,2)
@@ -250,7 +249,8 @@ while SpecRegLoop > -1
             ChoCrModelParam = FitChoCr(freq, SUM_ChoCr, ChoCrModelInit, MRS_struct.p.LarmorFreq(ii));
             
             % Apply zero-order phase correction
-            AllFramesFTrealign = AllFramesFTrealign*exp(1i*pi/180*(ChoCrModelParam(4)));
+            AllFramesFTrealign = AllFramesFTrealign * exp(1i*pi/180*ChoCrModelParam(4));
+            MRS_struct.out.SpecReg.phase(ii,:) = MRS_struct.out.SpecReg.phase(ii,:) + ChoCrModelParam(4);
         end
         
         % Reject transients that are greater than 3 st. devs. of MSEs (MM: 171117)
