@@ -14,8 +14,8 @@ function MRS_struct = GannetLoad(varargin)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 MRS_struct.version.Gannet = '3.1.6';
-MRS_struct.version.load = '200605';
-VersionCheck(MRS_struct.version.Gannet);
+MRS_struct.version.load = '200606';
+VersionCheck(0, MRS_struct.version.Gannet);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   0. Check the file list for typos
