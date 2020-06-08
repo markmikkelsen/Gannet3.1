@@ -1,11 +1,10 @@
-function MRS_struct = GannetDiscernDatatype(filename,MRS_struct)
-%Use the file ending to determine file type
+function MRS_struct = GannetDiscernDatatype(filename, MRS_struct)
 
-lastchar=filename;
+lastchar = filename;
 
-last2char=lastchar((end-1):end);
-last3char=lastchar((end-2):end);
-last4char=lastchar((end-3):end);
+last2char = lastchar((end-1):end);
+last3char = lastchar((end-2):end);
+last4char = lastchar((end-3):end);
 
 if strcmpi(last2char,'.7')
     MRS_struct.p.vendor = 'GE';

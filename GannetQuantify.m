@@ -3,9 +3,9 @@ function MRS_struct = GannetQuantify(MRS_struct)
 MRS_struct.version.quantify = '200226';
 
 % ******
-% RE (190107): Major change to water concentration calc to bring into line
-% with Gasparovic et al. 2006. Tagged '% Gasparovic et al. method (RE)'
-% Fractions implemented as molar fractions, not volume fractions
+% RAEE (190107): Major change to water concentration calc to bring into
+% line with Gasparovic et al. 2006. Tagged '% Gasparovic et al. method
+% (RAEE)' Fractions implemented as molar fractions, not volume fractions
 % ******
 
 cWM = 1; % concentration of GABA in pure WM
@@ -25,7 +25,7 @@ alpha = cWM/cGM;
 % CSF T2 = 503.0 +/- 64.3 Piechnik MRM 2009; 61: 579
 % However, other values from Stanisz et al:
 % CPMG for T2, IR for T1
-% T2GM = 99 +/ 7, lit: 71+/- 10 (27)
+% T2GM = 99 +/ 7, lit: 71 +/- 10 (27)
 % T1GM = 1820 +/- 114, lit 1470 +/- 50 (29)
 % T2WM = 69 +/-3 lit 56 +/- 4 (27)
 % T1WM = 1084 +/- 45 lit 1110 +/- 45 (29)
@@ -52,7 +52,7 @@ N_H_Water = 2;
 concW_GM    = 43.30*1e3;
 concW_WM    = 36.08*1e3;
 concW_CSF   = 53.84*1e3;
-molal_concW = 55.51*1e3; % Gasparovic et al. method (RE)
+molal_concW = 55.51*1e3; % Gasparovic et al. method (RAEE)
 
 if MRS_struct.p.PRIAM
     vox = MRS_struct.p.Vox;
@@ -98,7 +98,7 @@ for ii = 1:numscans
         fWM  = MRS_struct.out.(vox{kk}).tissue.fWM(ii);
         fCSF = MRS_struct.out.(vox{kk}).tissue.fCSF(ii);
         
-        % Gasparovic et al. method (RE)
+        % Gasparovic et al. method (RAEE)
         % Calculate molal fractions from volume fractions (equivalent to eqs. 5-7 in Gasparovic et al., 2006)
         molal_fGM  = (fGM*concW_GM) / (fGM*concW_GM + fWM*concW_WM + fCSF*concW_CSF);
         molal_fWM  = (fWM*concW_WM) / (fGM*concW_GM + fWM*concW_WM + fCSF*concW_CSF);
@@ -146,7 +146,7 @@ for ii = 1:numscans
                     MM = 1;
             end
             
-            % Gasparovic et al. method (RE)
+            % Gasparovic et al. method (RAEE)
             MRS_struct.out.(vox{kk}).(target{jj}).ConcIU_TissCorr(ii) = ...
                 (MRS_struct.out.(vox{kk}).(target{jj}).Area(ii) / MRS_struct.out.(vox{kk}).water.Area(ii)) * ...
                 (N_H_Water / N_H_Metab) * MM / EditingEfficiency * molal_concW * ...

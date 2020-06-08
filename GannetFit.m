@@ -3,7 +3,7 @@ function MRS_struct = GannetFit(MRS_struct, varargin)
 % Started by RAEE Nov 5, 2012
 % Updates by MGS, MM 2016-2020
 
-MRS_struct.version.fit = '200226';
+MRS_struct.version.fit = '200607';
 
 if MRS_struct.p.PRIAM
     vox = MRS_struct.p.Vox;
@@ -1561,7 +1561,7 @@ if isfield(MRS_struct.p,'TE_water')
 else
     TE_water = TE;
 end
-PureWaterConc = 55000; % mmol/L
+PureWaterConc = 55.51*1e3; % mmol/L
 WaterVisibility = 0.65; % this is approx the value from Ernst, Kreis, Ross (1993, JMR)
 T1_Water = 1.100; % average of WM and GM, Wansapura et al. 1999 (JMRI)
 T2_Water = 0.095; % average of WM and GM, Wansapura et al. 1999 (JMRI)

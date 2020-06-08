@@ -1,6 +1,5 @@
-function [img_t,img_c,img_s] = voxel2world_space(V,voxel_ctr)
-
-% MM (180221): Code borrowed from spm_orthviews.m
+function [img_t, img_c, img_s] = voxel2world_space(V, voxel_ctr)
+% Code borrowed from spm_orthviews.m
 
 bb   = spm_get_bbox(V,'fv');
 dims = round(diff(bb)'+1);
@@ -29,9 +28,9 @@ SM0 = [0 -1 0 +bb(2,2)+1
 SM = inv(SM0*M);
 SD = dims([2 3]);
 
-img_t = spm_slice_vol(V,TM,TD,2)';
-img_c = spm_slice_vol(V,CM,CD,2)';
-img_s = spm_slice_vol(V,SM,SD,2)';
+img_t = spm_slice_vol(V, TM, TD, 2)';
+img_c = spm_slice_vol(V, CM, CD, 2)';
+img_s = spm_slice_vol(V, SM, SD, 2)';
 
 
 

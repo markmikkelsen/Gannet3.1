@@ -6,6 +6,7 @@ freqRange = MRS_struct.p.sw(ii)/MRS_struct.p.LarmorFreq(ii);
 freq = (size(fids,1) + 1 - (1:size(fids,1))) / size(fids,1) * freqRange + 4.68 - freqRange/2;
 time = (0:(MRS_struct.p.npoints(ii)-1))'/MRS_struct.p.sw(ii);
 tMax = find(time <= 0.1,1,'last');
+MSEfun = @(a,b) sum((a - b).^2) / length(a);
 
 % Pre-allocate memory
 if MRS_struct.p.HERMES
@@ -33,15 +34,9 @@ else
             ind = find(MRS_struct.fids.ON_OFF == abs(jj-2));
         end
         for kk = 1:size(fids,2)/n
-            for ll = 1:size(fids,2)/n
-                tmp = sum((real(fids(1:tMax,ind(kk))) - real(fids(1:tMax,ind(ll)))).^2) / 200;
-                if tmp == 0
-                    D(kk,ll) = NaN;
-                else
-                    D(kk,ll) = tmp;
-                end
-            end
+            D(kk,:) = feval(MSEfun, real(fids(1:tMax,ind(kk))), real(fids(1:tMax,ind)));
         end
+        D(~D) = NaN;
         d = nanmean(D);
         w{jj} = 1./d.^2;
         w{jj} = w{jj}/sum(w{jj});
@@ -54,7 +49,6 @@ else
         end
     end
 end
-clear tmp
 [~, data] = FlattenData(data);
 
 % Set HERMES subexperiment indices (A, B, C, D)
@@ -113,7 +107,7 @@ if MRS_struct.p.HERMES
     freq2 = freq(freqLim(1,:));
     maxFreq = freq2(i);
     for jj = 1:2
-        tmp(jj,:) = freq <= maxFreq(jj)+0.22 & freq >= maxFreq(jj)-0.22;
+        tmp(jj,:) = freq <= maxFreq(jj)+0.22 & freq >= maxFreq(jj)-0.22; %#ok<AGROW>
     end
     freqLim(1,:) = or(tmp(1,:), tmp(2,:));
     f0 = (maxFreq(1) - maxFreq(2)) * MRS_struct.p.LarmorFreq(ii);
@@ -304,7 +298,7 @@ end
 end
 
 
-function out = objFunc(in, freq, freqLim, t, x) %#ok<*INUSL>
+function out = objFunc(in, freq, freqLim, t, x) %#ok<INUSL>
 
 f   = x(1);
 phi = x(2);
@@ -318,7 +312,6 @@ b = real(fftshift(fft(complex(in(:,1,2), in(:,2,2)))));
 DIFF = a - b;
 out = DIFF(freqLim);
 
-% % MM
 % figure(44);
 % cla;
 % hold on;

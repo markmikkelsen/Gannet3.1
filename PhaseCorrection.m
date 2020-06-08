@@ -31,11 +31,14 @@ if MRS_struct.p.HERMES
 else
     n = 2;
 end
+
 D = zeros(size(fids,2)/n);
 w = cell(1,n);
 data = complex(zeros(size(fids,1),n));
 time = (0:(MRS_struct.p.npoints(ii)-1))'/MRS_struct.p.sw(ii);
 tMax = find(time <= 0.1,1,'last');
+MSEfun = @(a,b) sum((a - b).^2) / length(a);
+
 if strcmp(MRS_struct.p.vendor,'Siemens_rda') % if .rda data, use conventional averaging
     data = fids;
 else
@@ -46,15 +49,9 @@ else
             ind = find(MRS_struct.fids.ON_OFF == abs(jj-2));
         end
         for kk = 1:size(fids,2)/n
-            for ll = 1:size(fids,2)/n
-                tmp = sum((real(fids(1:tMax,ind(kk))) - real(fids(1:tMax,ind(ll)))).^2) / 200;
-                if tmp == 0
-                    D(kk,ll) = NaN;
-                else
-                    D(kk,ll) = tmp;
-                end
-            end
+            D(kk,:) = feval(MSEfun, real(fids(1:tMax,ind(kk))), real(fids(1:tMax,ind)));
         end
+        D(~D) = NaN;
         d = nanmean(D);
         w{jj} = 1./d.^2;
         w{jj} = w{jj}/sum(w{jj});

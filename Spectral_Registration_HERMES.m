@@ -47,6 +47,8 @@ if showPlots == 1
     d.b = (1-d.h)/2;
 end
 
+count2 = 1;
+reverseStr = '';
 while SpecRegLoop > -1
     
     % Use first n points of time-domain data, where n is the last point where SNR > 3
@@ -80,11 +82,11 @@ while SpecRegLoop > -1
     end
     
     % Determine frequency and phase offsets by spectral registration
-    reverseStr = '';
     for corrloop = 1:size(flatdata,3)
-        msg = sprintf('\nSpectral registration - Fitting transient: %d', corrloop);
+        msg = sprintf('\nRunning spectral registration (HERMES) on transient: %d', count2);
         fprintf([reverseStr, msg]);
         reverseStr = repmat(sprintf('\b'), 1, length(msg));
+        count2 = count2 + 1;
         
         transient = squeeze(flatdata(:,:,corrloop));
         input.data = transient(:);

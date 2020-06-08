@@ -14,7 +14,7 @@ function MRS_struct = GannetLoad(varargin)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 MRS_struct.version.Gannet = '3.1.6';
-MRS_struct.version.load = '200606';
+MRS_struct.version.load = '200607';
 VersionCheck(0, MRS_struct.version.Gannet);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -476,7 +476,7 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
                     [AllFramesFTrealign, MRS_struct] = Spectral_Registration_HERMES(MRS_struct);
                 case 'RobustSpecReg'
                     [AllFramesFTrealign, MRS_struct] = Robust_Spectral_Registration(MRS_struct);
-                case 'none' % GO (180224)
+                case 'none'
                     % do nothing
                     AllFramesFTrealign = AllFramesFT;
                     MRS_struct.out.reject(:,ii) = zeros(1,size(AllFramesFT,2));
@@ -484,179 +484,13 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
                     error('AlignTo parameter in GannetPreInitialise.m not recognized. Check spelling.');
             end
             
-            MRS_struct.spec.AllFramesFT = AllFramesFT;
+            %MRS_struct.spec.AllFramesFT = AllFramesFT;
             MRS_struct.spec.AllFramesFTrealign = AllFramesFTrealign;
             
-            % Separate ON/OFF data and generate DIFF spectra
+            % Average subspectra and generate DIFF spectra
+            MRS_struct = SignalAveraging(MRS_struct, AllFramesFT, AllFramesFTrealign, ii, kk, vox);
             
-            if strcmp(MRS_struct.p.AlignTo,'RobustSpecReg')
-                fprintf('\nPerforming weighted averaging of subspectra...\n');
-            end
-            
-            if MRS_struct.p.HERMES
-                
-                MRS_struct.spec.(vox{kk}).subspec.A(ii,:) = mean(AllFramesFTrealign(:,1:4:size(AllFramesFTrealign,2)),2);
-                MRS_struct.spec.(vox{kk}).subspec.B(ii,:) = mean(AllFramesFTrealign(:,2:4:size(AllFramesFTrealign,2)),2);
-                MRS_struct.spec.(vox{kk}).subspec.C(ii,:) = mean(AllFramesFTrealign(:,3:4:size(AllFramesFTrealign,2)),2);
-                MRS_struct.spec.(vox{kk}).subspec.D(ii,:) = mean(AllFramesFTrealign(:,4:4:size(AllFramesFTrealign,2)),2);
-                
-                for jj = 1:length(MRS_struct.p.target)
-                    
-                    % Determine weights for weighted averaging (MM: 190423)
-                    if strcmp(MRS_struct.p.AlignTo,'RobustSpecReg') && ~strcmp(MRS_struct.p.vendor,'Siemens_rda') % if .rda data, use conventional averaging
-                        
-                        ON_inds  = find(MRS_struct.fids.ON_OFF(jj,:) == 1);
-                        OFF_inds = find(MRS_struct.fids.ON_OFF(jj,:) == 0);
-                        DIFFs = zeros(size(AllFramesFTrealign,1), size(AllFramesFTrealign,2)/4);
-                        inds = 1:2;
-                        
-                        for ll = 1:size(DIFFs,2)
-                            tmpON  = sum(AllFramesFTrealign(:,ON_inds(inds)),2);
-                            tmpOFF = sum(AllFramesFTrealign(:,OFF_inds(inds)),2);
-                            DIFFs(:,ll) = tmpON - tmpOFF;
-                            inds = inds + 2;
-                        end
-                        
-                        DIFFs = ifft(ifftshift(DIFFs,1),[],1);
-                        DIFFs = fftshift(fft(DIFFs(1:MRS_struct.p.npoints(ii),:),[],1),1);
-                        
-                        freq = (size(DIFFs,1) + 1 - (1:size(DIFFs,1))) / size(DIFFs,1) * freqRange + 4.68 - freqRange/2;
-                        freqLim = freq <= 4.25 & freq >= 1.8;
-                        D = zeros(size(DIFFs,2));
-                        
-                        for ll = 1:size(DIFFs,2)
-                            for mm = 1:size(DIFFs,2)
-                                tmp = sum((real(DIFFs(freqLim,ll)) - real(DIFFs(freqLim,mm))).^2) / sum(freqLim);
-                                if tmp == 0
-                                    D(ll,mm) = NaN;
-                                else
-                                    D(ll,mm) = tmp;
-                                end
-                            end
-                        end
-                        
-                        d = nanmedian(D);
-                        w = 1./d.^2;
-                        w = repelem(w,2);
-                        w = w/sum(w);
-                        w = repmat(w, [size(AllFramesFTrealign,1) 1]);
-                        
-                        OFF = sum(w .* AllFramesFTrealign(:,MRS_struct.fids.ON_OFF(jj,:)==0),2);
-                        ON  = sum(w .* AllFramesFTrealign(:,MRS_struct.fids.ON_OFF(jj,:)==1),2);
-                        
-                        MRS_struct.out.reject(:,ii) = zeros(size(AllFramesFTrealign,2),1);
-                        
-                    else
-                        
-                        if strcmp(MRS_struct.p.vendor,'Siemens_rda')
-                            MRS_struct.out.reject(:,ii) = zeros(size(AllFramesFTrealign,2),1);
-                        end
-                        OFF = mean(AllFramesFTrealign(:,(MRS_struct.fids.ON_OFF(jj,:)==0)' & MRS_struct.out.reject(:,ii)==0),2);
-                        ON  = mean(AllFramesFTrealign(:,(MRS_struct.fids.ON_OFF(jj,:)==1)' & MRS_struct.out.reject(:,ii)==0),2);
-                        
-                    end
-                    
-                    MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{jj}).off(ii,:) = OFF;
-                    MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{jj}).on(ii,:)  = ON;
-                    
-                    MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{jj}).diff(ii,:) = (ON - OFF)/2;
-                    MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{jj}).diff_noalign(ii,:) = (mean(AllFramesFT(:,MRS_struct.fids.ON_OFF(jj,:)==1),2) - mean(AllFramesFT(:,MRS_struct.fids.ON_OFF(jj,:)==0),2))/2;
-                    
-                    % Edit-OFF,-OFF spectrum (for Cr referencing)
-                    if strcmp(MRS_struct.p.AlignTo,'RobustSpecReg') && ~strcmp(MRS_struct.p.vendor,'Siemens_rda') % if .rda data, use conventional averaging
-                        
-                        OFF_OFF_inds = find(all(MRS_struct.fids.ON_OFF'==0,2));
-                        OFF_OFFs = ifft(ifftshift(AllFramesFTrealign(:,OFF_OFF_inds),1),[],1);
-                        OFF_OFFs = fftshift(fft(OFF_OFFs(1:MRS_struct.p.npoints(ii),:),[],1),1);
-                        D = zeros(size(OFF_OFFs,2));
-                        
-                        for ll = 1:size(OFF_OFFs,2)
-                            for mm = 1:size(OFF_OFFs,2)
-                                tmp = sum((real(OFF_OFFs(freqLim,ll)) - real(OFF_OFFs(freqLim,mm))).^2) / sum(freqLim);
-                                if tmp == 0
-                                    D(ll,mm) = NaN;
-                                else
-                                    D(ll,mm) = tmp;
-                                end
-                            end
-                        end
-                        
-                        d = nanmedian(D);
-                        w = 1./d.^2;
-                        w = w/sum(w);
-                        w = repmat(w, [size(AllFramesFTrealign,1) 1]);
-                        OFF_OFF = sum(w .* AllFramesFTrealign(:,OFF_OFF_inds),2);
-                        
-                    else
-                        
-                        if strcmp(MRS_struct.p.vendor,'Siemens_rda')
-                            MRS_struct.out.reject(:,ii) = zeros(size(AllFramesFTrealign,2),1);
-                        end
-                        OFF_OFF = mean(AllFramesFTrealign(:,all(MRS_struct.fids.ON_OFF'==0,2) & MRS_struct.out.reject(:,ii)==0),2);
-                        
-                    end
-                    
-                    MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{jj}).off_off(ii,:) = OFF_OFF;
-                    
-                end
-                
-            else
-                
-                if strcmp(MRS_struct.p.AlignTo,'RobustSpecReg') && ~strcmp(MRS_struct.p.vendor,'Siemens_rda') % if .rda data, use conventional averaging
-                    
-                    % Determine weights for weighted averaging (MM: 190423)
-                    ON_inds  = find(MRS_struct.fids.ON_OFF == 1);
-                    OFF_inds = find(MRS_struct.fids.ON_OFF == 0);
-                    DIFFs = zeros(size(AllFramesFTrealign,1), size(AllFramesFTrealign,2)/2);
-                    
-                    for ll = 1:size(AllFramesFTrealign,2)/2
-                        DIFFs(:,ll) = AllFramesFTrealign(:,ON_inds(ll)) - AllFramesFTrealign(:,OFF_inds(ll));
-                    end
-                    
-                    DIFFs = ifft(ifftshift(DIFFs,1),[],1);
-                    DIFFs = fftshift(fft(DIFFs(1:MRS_struct.p.npoints(ii),:),[],1),1);
-                    
-                    freq = (size(DIFFs,1) + 1 - (1:size(DIFFs,1))) / size(DIFFs,1) * freqRange + 4.68 - freqRange/2;
-                    freqLim = freq <= 4.25 & freq >= 1.8;
-                    D = zeros(size(AllFramesFTrealign,2)/2);
-                    
-                    for ll = 1:size(AllFramesFTrealign,2)/2
-                        for mm = 1:size(AllFramesFTrealign,2)/2
-                            tmp = sum((real(DIFFs(freqLim,ll)) - real(DIFFs(freqLim,mm))).^2) / sum(freqLim);
-                            if tmp == 0
-                                D(ll,mm) = NaN;
-                            else
-                                D(ll,mm) = tmp;
-                            end
-                        end
-                    end
-                    
-                    d = nanmedian(D);
-                    w = 1./d.^2;
-                    w = w/sum(w);
-                    w = repmat(w, [size(AllFramesFTrealign,1) 1]);
-                    
-                    MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{1}).off(ii,:) = sum(w .* AllFramesFTrealign(:,MRS_struct.fids.ON_OFF==0),2);
-                    MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{1}).on(ii,:)  = sum(w .* AllFramesFTrealign(:,MRS_struct.fids.ON_OFF==1),2);
-                    
-                    MRS_struct.out.reject(:,ii) = zeros(1,size(AllFramesFTrealign,2));
-                    
-                else
-                    
-                    if strcmp(MRS_struct.p.vendor,'Siemens_rda')
-                        MRS_struct.out.reject(:,ii) = zeros(size(AllFramesFTrealign,2),1);
-                    end
-                    MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{1}).off(ii,:) = mean(AllFramesFTrealign(:,(MRS_struct.fids.ON_OFF==0)' & MRS_struct.out.reject(:,ii)==0), 2);
-                    MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{1}).on(ii,:)  = mean(AllFramesFTrealign(:,(MRS_struct.fids.ON_OFF==1)' & MRS_struct.out.reject(:,ii)==0), 2);
-                    
-                end
-                
-                MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{1}).diff(ii,:) = (MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{1}).on(ii,:) - MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{1}).off(ii,:))/2;
-                MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{1}).diff_noalign(ii,:) = (mean(AllFramesFT(:,(MRS_struct.fids.ON_OFF==1)),2) - mean(AllFramesFT(:,(MRS_struct.fids.ON_OFF==0)),2))/2;
-                
-            end
-            
-            % Remove residual water from diff and diff_noalign spectra using HSVD -- GO & MGSaleh 2016
+            % Remove residual water from diff and diff_noalign spectra using HSVD
             if MRS_struct.p.water_removal
                 
                 for jj = 1:length(MRS_struct.p.target)
@@ -673,7 +507,7 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
                         MRS_struct.p.sw(ii)/1e3, 8, -0.08, 0.08, 0, 2048);
                     MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{jj}).diff_noalign(ii,:) = fftshift(fft(MRS_struct.fids.(vox{kk}).(MRS_struct.p.target{jj}).diff_noalign(ii,:)));
                     
-                    % MM (170703): Need to perform baseline correction on filtered data
+                    % Need to perform baseline correction on filtered data
                     freqbounds = MRS_struct.spec.freq <= 8 & MRS_struct.spec.freq >= 7;
                     baseMean_diff = mean(real(MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{jj}).diff(ii,freqbounds)));
                     baseMean_diffnoalign = mean(real(MRS_struct.spec.(vox{kk}).(MRS_struct.p.target{jj}).diff_noalign(ii,freqbounds)));
@@ -724,13 +558,13 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
             end
             
             subplot(2,2,2);
-            rejectframesplot = (1./MRS_struct.out.reject(:,ii).') .* MRS_struct.spec.F0freq(ii,:);
+            %rejectframesplot = (1./MRS_struct.out.reject(:,ii).') .* MRS_struct.spec.F0freq(ii,:);
             hold on;
             plot([1 size(MRS_struct.fids.data,2)], [F0 F0], '-k')
             plot([1 size(MRS_struct.fids.data,2)], [F0-0.04 F0-0.04], '--k')
             plot([1 size(MRS_struct.fids.data,2)], [F0+0.04 F0+0.04], '--k');
             plot(1:size(MRS_struct.fids.data,2), MRS_struct.spec.F0freq(ii,:)', 'Color', [0 0.4470 0.7410]);
-            plot(1:size(MRS_struct.fids.data,2), rejectframesplot, 'ro');
+            %plot(1:size(MRS_struct.fids.data,2), rejectframesplot, 'ro');
             hold off;
             if MRS_struct.p.HERMES || any(strcmp(MRS_struct.p.target,'GSH'))
                 text(size(MRS_struct.fids.data,2) + 0.025*size(MRS_struct.fids.data,2), F0, {'Nominal','Cr freq.'}, 'FontSize', 8);
@@ -756,18 +590,18 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
             else
                 subplot(2,2,3);
             end
-            if ~strcmp(MRS_struct.p.AlignTo,'no')
+            if ~strcmp(MRS_struct.p.AlignTo,'none')
                 CrFitLimLow = 2.72;
                 CrFitLimHigh = 3.12;
                 plotrange = MRS_struct.spec.freq <= CrFitLimHigh & MRS_struct.spec.freq >= CrFitLimLow;
                 CrFitRange = sum(plotrange);
                 plotrealign = [real(AllFramesFT(plotrange,:)); real(AllFramesFTrealign(plotrange,:))];
                 % Don't display rejects
-                plotrealign(CrFitRange+1:end,(MRS_struct.out.reject(:,ii).'==1)) = min(plotrealign(:));
+                %plotrealign(CrFitRange+1:end,(MRS_struct.out.reject(:,ii).' == 1)) = min(plotrealign(:));
                 imagesc(plotrealign);
                 title({'Cr Frequency','(pre- and post-alignment)'});
                 xlabel('average');
-                set(gca,'YTick',[1 CrFitRange CrFitRange+CrFitRange*(CrFitLimHigh-3.02)/(CrFitLimHigh-CrFitLimLow) CrFitRange*2], ...
+                set(gca,'YTick',[1 CrFitRange CrFitRange+CrFitRange*(CrFitLimHigh - 3.02)/(CrFitLimHigh - CrFitLimLow) CrFitRange*2], ...
                     'YTickLabel', [CrFitLimHigh CrFitLimLow 3.02 CrFitLimLow], 'XLim', [1 size(MRS_struct.fids.data,2)], 'YLim', [1 CrFitRange*2], ...
                     'TickDir','out','box','off');
                 if size(MRS_struct.fids.data,2) == 2
@@ -785,7 +619,6 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
             subplot(2,2,4);
             axis off;
             
-            % MM (180112)
             if strcmp(MRS_struct.p.vendor,'Siemens_rda')
                 [~,tmp,tmp2] = fileparts(MRS_struct.metabfile{ii*2-1});
             else
@@ -818,7 +651,7 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
             if strcmp(MRS_struct.p.AlignTo,'RobustSpecReg')
                 text(0.275, 0.4, 'n/a - Weighted averaging used', 'FontName', 'Arial', 'FontSize', 13);
             else
-                text(0.275, 0.4, num2str(sum(MRS_struct.out.reject(:,ii),1)), 'FontName', 'Arial', 'FontSize', 13);
+                %text(0.275, 0.4, num2str(sum(MRS_struct.out.reject(:,ii),1)), 'FontName', 'Arial', 'FontSize', 13);
             end
             
             text(0.25, 0.3, 'LoadVer: ', 'FontName', 'Arial', 'FontSize', 13, 'HorizontalAlignment', 'right');
@@ -842,7 +675,6 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
                 fullpath = regexprep(fullpath, '/', '_');
             end
             
-            % MM (180112)
             if strcmp(MRS_struct.p.vendor,'Siemens_rda')
                 [~,metabfile_nopath] = fileparts(MRS_struct.metabfile{ii*2-1});
             else
@@ -898,7 +730,7 @@ for ii = 1:numscans % Loop over all files in the batch (from metabfile)
                 end
             end
             
-            % 140116: ADH reorder structure
+            % Reorder structure
             if isfield(MRS_struct, 'waterfile')
                 structorder = {'version', 'ii', 'metabfile', ...
                     'waterfile', 'p', 'fids', 'spec', 'out'};

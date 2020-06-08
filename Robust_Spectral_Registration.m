@@ -26,6 +26,7 @@ MRS_struct.out.SpecReg.phase(ii,:) = zeros(1,size(MRS_struct.fids.data,2));
 MRS_struct.out.SpecReg.MSE(ii,:)   = zeros(1,size(MRS_struct.fids.data,2));
 MRS_struct.fids.data_align = complex(zeros(size(MRS_struct.fids.data)));
 DataToAlign = complex(zeros(size(MRS_struct.fids.data)));
+MSEfun = @(a,b) sum((a - b).^2) / length(a);
 
 % Optimization options
 lsqnonlinopts = optimoptions(@lsqnonlin);
@@ -91,6 +92,8 @@ end
 time = (0:(MRS_struct.p.npoints(ii)-1))'/MRS_struct.p.sw(ii);
 
 % Spectral registration
+count = 1;
+reverseStr = '';
 while SpecRegLoop > -1
     
     % Use first n points of time-domain data, where n is the last point where abs(diff(mean(SNR))) > 0.5
@@ -116,15 +119,9 @@ while SpecRegLoop > -1
         D = zeros(size(flatdata,3));
         ind = find(SubspecToAlign == SpecRegLoop);
         for jj = 1:size(flatdata,3)
-            for kk = 1:size(flatdata,3)
-                tmp = sum((real(DataToAlign(1:tMax,ind(jj))) - real(DataToAlign(1:tMax,ind(kk)))).^2) / tMax;
-                if tmp == 0
-                    D(jj,kk) = NaN;
-                else
-                    D(jj,kk) = tmp;
-                end
-            end
+            D(jj,:) = feval(MSEfun, real(DataToAlign(1:tMax,ind(jj))), real(DataToAlign(1:tMax,ind)));
         end
+        D(~D) = NaN;
         d = nanmedian(D);
         [~,alignOrd] = sort(d);
     end
@@ -149,11 +146,11 @@ while SpecRegLoop > -1
     % Determine frequency and phase offsets by spectral registration
     t = 0:(1/MRS_struct.p.sw(ii)):(length(target)/2-1)*(1/MRS_struct.p.sw(ii));
     iter = 1;
-    reverseStr = '';
-    for jj = alignOrd        
-        msg = sprintf('\nRobust spectral registration - Iteration: %d', iter);
+    for jj = alignOrd
+        msg = sprintf('\nRunning robust spectral registration on transient: %d', count);
         fprintf([reverseStr, msg]);
         reverseStr = repmat(sprintf('\b'), 1, length(msg));
+        count = count + 1;
         
         transient = squeeze(flatdata(:,:,jj));
         fun = @(x) SpecReg(transient(:)/a, target/a, t, x);
@@ -171,7 +168,7 @@ while SpecRegLoop > -1
         w(jj) = 0.5*corr(target, m(:,jj)).^2;
         target = (1 - w(jj))*target + w(jj)*m(:,jj);
         
-        iter = iter + 1;        
+        iter = iter + 1;
     end
     
     ind = find(SubspecToAlign == SpecRegLoop);

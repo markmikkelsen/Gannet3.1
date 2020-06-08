@@ -7,17 +7,21 @@ function MRS_struct = GannetSegment(MRS_struct)
 % for the GM, WM and CSF segmentations. If these files are present, they
 % are loaded and used for the voxel segmentation
 
-MRS_struct.version.segment = '200226';
+MRS_struct.version.segment = '200606';
 
 warning('off'); % temporarily suppress warning messages
 
 % First check if SPM12 is installed and on the search path
 spmversion = fileparts(which('spm'));
 if isempty(spmversion)
-    error('SPM not found! Please install SPM12 (https://www.fil.ion.ucl.ac.uk/spm/software/spm12) and make sure it is on your search path.');
+    msg = 'SPM not found! Please install SPM12 and make sure it is in your search path.';
+    msg = hyperlink('https://www.fil.ion.ucl.ac.uk/spm/software/spm12', 'SPM12', msg);
+    error(msg);
 elseif strcmpi(spmversion(end-3:end),'spm8')
-    error(['SPM8 detected! Gannet 3.0 no longer supports SPM8. ' ...
-        'Please install SPM12 (https://www.fil.ion.ucl.ac.uk/spm/software/spm12) and make sure it is on your search path.']);
+    msg = ['SPM8 detected! Gannet no longer supports SPM8. ' ...
+        'Please install SPM12 and make sure it is in your search path.'];
+    msg = hyperlink('https://www.fil.ion.ucl.ac.uk/spm/software/spm12', 'SPM12', msg);
+    error(msg);
 end
 
 if MRS_struct.p.PRIAM
